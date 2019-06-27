@@ -1,4 +1,5 @@
 require 'httpclient'
+require "json"
 
 class SlackListener < Redmine::Hook::Listener
 	def redmine_slack_issues_new_after_save(context={})
@@ -303,6 +304,33 @@ private
 
 		# slack usernames may only contain lowercase letters, numbers,
 		# dashes and underscores and must start with a letter or number.
-		text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
+		# text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
+		names = text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
+
+		# See: https://api.slack.com/methods/users.list
+		# key: profile.real_name(real_name), value: slack_id
+		json_path = '/var/www/slack_members.json'
+		if ! File.exists?(json_path)
+			return names
+		end
+
+		replaced_names = []
+		File.open(json_path) do |j|
+
+			begin
+				mapping = JSON.load(j)
+			rescue
+				return names
+			end
+
+			for name in names
+				if mapping[name.delete("@")]
+					replaced_names.push("<@%s>" % mapping[name.delete("@")])
+				else
+					replaced_names.push(name)
+				end
+			end
+		end
+		replaced_names
 	end
 end
