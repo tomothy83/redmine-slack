@@ -305,7 +305,13 @@ private
 		# slack usernames may only contain lowercase letters, numbers,
 		# dashes and underscores and must start with a letter or number.
 		# text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
-		names = text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
+    names = []
+    # exclude reST quote line
+    text.each_line {|line|
+      if line.scan(/\A\s+\S+/).empty? then
+        names += line.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
+      end
+    }
 
 		# See: https://api.slack.com/methods/users.list
 		# key: profile.real_name(real_name), value: slack_id
