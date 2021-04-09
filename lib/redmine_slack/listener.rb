@@ -1,4 +1,5 @@
 require 'httpclient'
+require "json"
 
 class SlackListener < Redmine::Hook::Listener
 	def redmine_slack_issues_new_after_save(context={})
@@ -137,7 +138,8 @@ class SlackListener < Redmine::Hook::Listener
 
 		params = {
 			:text => msg,
-			:link_names => 1,
+      # disable default mention, use extract_usernames only
+			:link_names => 0,
 		}
 
 		params[:username] = username if username
@@ -269,7 +271,16 @@ private
 			value = "<#{object_url issue}|#{escape issue}>" if issue
 		end
 
-		value = "-" if value.empty?
+#		value = "-" if value.empty?
+		value = if value.empty?
+			"-"
+		elsif value.count("\n") >= 5
+			value.split("\n")[0,5].join("\n") + '...'
+		elsif value.length > 100
+			value[0,97] + '...'
+		else
+			value
+		end
 
 		result = { :title => title, :value => value }
 		result[:short] = true if short
@@ -289,6 +300,18 @@ private
 
 		# slack usernames may only contain lowercase letters, numbers,
 		# dashes and underscores and must start with a letter or number.
-		text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
+		# text.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
+    _names = []
+    # exclude reST quote line
+    text.each_line {|line|
+      if line.scan(/\A\s+\S+/).empty? then
+        _names += line.scan(/@[a-z0-9][a-z0-9_\-]*/).uniq
+      end
+    }
+    names = []
+    for name in _names do
+      names.push("<%s>" % name)
+    end
+    names
 	end
 end
